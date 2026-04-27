@@ -1,0 +1,1314 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>股票格局点计算器 | 浅色数据看板</title>
+    <!-- Tailwind CSS v3 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome -->
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
+    <!-- 统一的 Tailwind 配置 -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#3b82f6',
+                        secondary: '#8b5cf6',
+                        success: '#10b981',
+                        danger: '#ef4444',
+                        warning: '#f59e0b',
+                        info: '#6366f1',
+                        light: '#f9fafb',
+                        dark: '#111827',
+                        'slate-50': '#f8fafc',
+                        'slate-100': '#f1f5f9',
+                        'slate-200': '#e2e8f0',
+                        'slate-300': '#cbd5e1',
+                        'slate-400': '#94a3b8',
+                        'slate-500': '#64748b',
+                        'slate-600': '#475569',
+                        'slate-700': '#334155',
+                        'slate-800': '#1e293b',
+                        'slate-900': '#0f172a',
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                    },
+                    clipPath: {
+                        'polygon-card': 'polygon(0% 0%, 95% 0%, 100% 5%, 100% 100%, 5% 100%, 0% 95%)',
+                    }
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .transition-all-300 {
+                transition: all 300ms ease-in-out;
+            }
+            .shadow-card {
+                box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+            }
+            .input-focus {
+                @apply focus:ring-2 focus:ring-primary focus:border-primary focus:outline-none;
+            }
+            .btn-primary {
+                @apply bg-primary hover:bg-primary/90 text-white font-medium py-2 px-4 rounded transition-all-300;
+            }
+            .btn-secondary {
+                @apply bg-secondary hover:bg-secondary/90 text-white font-medium py-2 px-4 rounded transition-all-300;
+            }
+            .btn-outline {
+                @apply border border-slate-300 hover:bg-slate-50 text-slate-700 font-medium py-2 px-4 rounded transition-all-300;
+            }
+            .card {
+                @apply bg-white rounded-none shadow-card p-4 transition-all-300 hover:shadow-md border-l-4 border-primary;
+            }
+            .card-header {
+                @apply text-lg font-semibold text-slate-800 mb-4 pb-2 border-b border-slate-200 flex items-center;
+            }
+            .form-label {
+                @apply block text-sm font-medium text-slate-700 mb-1;
+            }
+            .form-input {
+                @apply w-full px-3 py-2 border border-slate-300 rounded-none input-focus;
+            }
+            .form-select {
+                @apply w-full px-3 py-2 border border-slate-300 rounded-none input-focus;
+            }
+            .badge {
+                @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+            }
+            .badge-success {
+                @apply bg-green-100 text-green-800;
+            }
+            .badge-warning {
+                @apply bg-yellow-100 text-yellow-800;
+            }
+            .badge-danger {
+                @apply bg-red-100 text-red-800;
+            }
+            .clip-path-polygon {
+                clip-path: polygon(0% 0%, 95% 0%, 100% 5%, 100% 100%, 5% 100%, 0% 95%);
+            }
+        }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen">
+    <!-- 背景动效 -->
+    <div id="animationBackground" class="fixed inset-0 pointer-events-none opacity-10 z-0"></div>
+
+    <!-- 主容器 -->
+    <div class="relative z-10">
+        <!-- 顶部导航栏 -->
+        <header class="bg-white shadow-sm border-b border-slate-200">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between h-16">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0 flex items-center">
+                            <svg class="h-8 w-8 text-primary" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <polyline points="22,12 18,12 15,21 9,3 6,12 2,12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                            <h1 class="ml-3 text-xl font-bold text-slate-900">股票格局点计算器</h1>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <button id="help-btn" class="p-2 rounded hover:bg-slate-100 transition-all-300">
+                            <i class="fa fa-question-circle text-slate-600"></i>
+                        </button>
+                        <button id="theme-toggle" class="p-2 rounded hover:bg-slate-100 transition-all-300">
+                            <i class="fa fa-moon-o text-slate-600"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- 主内容区 -->
+        <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+            <!-- 顶部卡片 -->
+            <div class="bg-white p-4 shadow-sm mb-6 border-l-4 border-primary">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center">
+                    <div>
+                        <h2 class="text-lg font-semibold text-slate-800 flex items-center">
+                            <svg class="w-5 h-5 mr-2 text-primary" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <polyline points="3,12 8,7 12,11 16,7 21,12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                            股息率分析仪表盘
+                        </h2>
+                        <p class="text-sm text-slate-500 mt-1">基于股票分红计算动态股息率和目标股价</p>
+                    </div>
+                    <div class="mt-4 md:mt-0 flex space-x-3">
+                        <button id="export-data-btn" class="btn-outline text-sm flex items-center">
+                            <i class="fa fa-download mr-1"></i> 导出数据
+                        </button>
+                        <button id="import-data-btn" class="btn-outline text-sm flex items-center">
+                            <i class="fa fa-upload mr-1"></i> 导入数据
+                        </button>
+                        <input type="file" id="file-input" accept=".csv" class="hidden">
+                    </div>
+                </div>
+            </div>
+
+            <!-- 网格布局 -->
+            <div class="grid grid-cols-12 gap-6">
+                <!-- 左侧：股票信息输入 -->
+                <div class="col-span-12 lg:col-span-4">
+                    <div class="card mb-6">
+                        <div class="card-header flex justify-between items-center">
+                            <div class="flex items-center">
+                                <svg class="w-5 h-5 mr-2 text-primary" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <polyline points="23,6 13.5,15.5 8.5,10.5 1,18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <polyline points="17,6 23,6 23,12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                                <h3>股票信息</h3>
+                            </div>
+                            <button id="add-stock-btn" class="text-primary hover:text-primary/80 flex items-center text-sm">
+                                <i class="fa fa-plus-circle mr-1"></i> 添加股票
+                            </button>
+                        </div>
+                        <form id="stock-form" class="space-y-4">
+                            <div>
+                                <label for="stock-name" class="form-label">股票名称</label>
+                                <input type="text" id="stock-name" class="form-input" placeholder="例如：贵州茅台" required>
+                            </div>
+                            <div>
+                                <label for="stock-code" class="form-label">股票代码</label>
+                                <input type="text" id="stock-code" class="form-input" placeholder="例如：600519">
+                            </div>
+                            <div>
+                                <label for="current-price" class="form-label">当前股价 (元)</label>
+                                <input type="number" id="current-price" class="form-input" step="0.01" min="0" placeholder="例如：1800.00" required>
+                            </div>
+                            <div>
+                                <label for="dividend-amount" class="form-label">年分红金额 (元/股)</label>
+                                <input type="number" id="dividend-amount" class="form-input" step="0.01" min="0" placeholder="例如：21.68" required>
+                            </div>
+                            <div>
+                                <label for="treasury-rate" class="form-label">十年国债利率 (%)</label>
+                                <input type="number" id="treasury-rate" class="form-input" step="0.01" min="0" max="100" placeholder="例如：2.50" value="2.50" required>
+                                <p class="text-xs text-slate-500 mt-1">用于计算股息率参考线（国债利率的2.5倍）</p>
+                            </div>
+                            <div>
+                                <label class="form-label">股息率档位设置 (%)</label>
+                                <div class="grid grid-cols-2 gap-2" id="dividend-rates-container">
+                                    <div>
+                                        <input type="number" class="dividend-rate form-input" step="0.01" min="0" max="100" placeholder="3.00" value="3.00">
+                                    </div>
+                                    <div>
+                                        <input type="number" class="dividend-rate form-input" step="0.01" min="0" max="100" placeholder="4.00" value="4.00">
+                                    </div>
+                                    <div>
+                                        <input type="number" class="dividend-rate form-input" step="0.01" min="0" max="100" placeholder="5.00" value="5.00">
+                                    </div>
+                                    <div>
+                                        <input type="number" class="dividend-rate form-input" step="0.01" min="0" max="100" placeholder="6.00" value="6.00">
+                                    </div>
+                                    <div>
+                                        <input type="number" class="dividend-rate form-input" step="0.01" min="0" max="100" placeholder="7.00" value="7.00">
+                                    </div>
+                                    <div class="flex items-end">
+                                        <button type="button" id="add-rate-btn" class="btn-outline text-sm py-1 px-2 w-full">
+                                            <i class="fa fa-plus mr-1"></i> 添加档位
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="pt-2">
+                                <button type="submit" class="btn-primary w-full flex items-center justify-center">
+                                    <i class="fa fa-calculator mr-2"></i> 计算分析
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- 股票列表 -->
+                    <div class="card">
+                        <div class="card-header flex items-center">
+                            <svg class="w-5 h-5 mr-2 text-primary" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <line x1="8" y1="6" x2="21" y2="6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                <line x1="8" y1="12" x2="21" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                <line x1="8" y1="18" x2="21" y2="18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                <line x1="3" y1="6" x2="3.01" y2="6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                <line x1="3" y1="12" x2="3.01" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                <line x1="3" y1="18" x2="3.01" y2="18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                            <h3>已保存股票</h3>
+                        </div>
+                        <div id="stock-list" class="space-y-3 max-h-64 overflow-y-auto">
+                            <!-- 股票列表将通过JS动态生成 -->
+                            <div class="text-slate-500 text-center py-4" id="empty-stock-message">
+                                暂无保存的股票
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 右侧：计算结果和图表 -->
+                <div class="col-span-12 lg:col-span-8 space-y-6">
+                    <!-- 当前股息率卡片 -->
+                    <div class="card">
+                        <div class="card-header flex items-center">
+                            <svg class="w-5 h-5 mr-2 text-primary" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <polyline points="22,12 18,12 15,21 9,3 6,12 2,12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                            <h3>当前股息率</h3>
+                        </div>
+                        <div class="flex items-end">
+                            <span id="current-dividend-rate" class="text-5xl font-bold text-slate-900">--</span>
+                            <span class="text-slate-900 ml-1 text-2xl">%</span>
+                        </div>
+                        <p class="text-sm text-slate-500 mt-2">基于当前股价和分红计算</p>
+                    </div>
+
+                    <!-- 目标股价卡片 -->
+                    <div class="card">
+                        <div class="card-header flex items-center">
+                            <svg class="w-5 h-5 mr-2 text-primary" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M16 3h5v5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                <path d="M8 3H3v5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                <path d="M16 21h5v-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                <path d="M8 21H3v-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                <rect x="3" y="3" width="7" height="7" rx="1" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                <rect x="14" y="3" width="7" height="7" rx="1" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                <rect x="14" y="14" width="7" height="7" rx="1" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                <rect x="3" y="14" width="7" height="7" rx="1" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                            <h3>不同股息率对应的目标股价</h3>
+                        </div>
+                        <div id="target-prices-container" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+                            <!-- 目标股价将通过JS动态生成 -->
+                            <div class="text-slate-500 text-center py-4 col-span-full" id="empty-target-prices-message">
+                                请输入股票信息并点击计算按钮查看结果
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 投资建议卡片 -->
+                    <div class="card">
+                        <div class="card-header flex items-center">
+                            <svg class="w-5 h-5 mr-2 text-primary" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                <line x1="12" y1="8" x2="12" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                <line x1="12" y1="16" x2="12.01" y2="16" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                            <h3>投资建议</h3>
+                        </div>
+                        <p id="investment-advice" class="text-slate-700">
+                            请输入股票信息并点击计算按钮查看结果和建议。
+                        </p>
+                    </div>
+
+                    <!-- 股息率趋势图 -->
+                    <div class="card">
+                        <div class="card-header flex items-center">
+                            <svg class="w-5 h-5 mr-2 text-primary" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <polyline points="22,12 18,12 15,21 9,3 6,12 2,12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                            <h3>股息率趋势分析</h3>
+                        </div>
+                        <div class="h-64">
+                            <canvas id="dividend-rate-chart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- 多股票对比 -->
+                    <div class="card">
+                        <div class="card-header flex items-center">
+                            <svg class="w-5 h-5 mr-2 text-primary" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <rect x="3" y="3" width="7" height="7" rx="1" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                <rect x="14" y="3" width="7" height="7" rx="1" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                <rect x="14" y="14" width="7" height="7" rx="1" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                <rect x="3" y="14" width="7" height="7" rx="1" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                            <h3>多股票股息率对比</h3>
+                        </div>
+                        <div class="h-64">
+                            <canvas id="comparison-chart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- 底部信息 -->
+        <footer class="bg-white border-t border-slate-200 py-4 mt-8">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex flex-col md:flex-row justify-between items-center">
+                    <p class="text-sm text-slate-500">© 2025 股票格局点计算器 | 仅供投资参考，不构成投资建议</p>
+                    <div class="mt-2 md:mt-0 text-sm text-slate-500">
+                        <span>数据更新时间: <span id="update-time">2025-04-11</span></span>
+                    </div>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <!-- 帮助模态框 -->
+    <div id="help-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-none shadow-lg max-w-2xl w-full max-h-[80vh] overflow-y-auto border-l-4 border-primary">
+            <div class="p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-bold text-slate-900 flex items-center">
+                        <svg class="w-5 h-5 mr-2 text-primary" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            <line x1="12" y1="8" x2="12" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            <line x1="12" y1="16" x2="12.01" y2="16" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                        使用帮助
+                    </h2>
+                    <button id="close-help-btn" class="text-slate-500 hover:text-slate-700">
+                        <i class="fa fa-times"></i>
+                    </button>
+                </div>
+                <div class="space-y-4">
+                    <div>
+                        <h3 class="text-lg font-medium text-slate-800 mb-2">什么是股息率？</h3>
+                        <p class="text-slate-600">股息率是指股票的年分红金额与股票价格的比率，通常以百分比表示。它是衡量股票投资回报的重要指标之一。</p>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-medium text-slate-800 mb-2">如何使用本计算器？</h3>
+                        <ol class="list-decimal list-inside space-y-2 text-slate-600">
+                            <li>输入股票名称、当前股价和年分红金额</li>
+                            <li>设置十年国债利率（用于计算参考线）</li>
+                            <li>设置您期望的股息率档位（可添加或删除）</li>
+                            <li>点击"计算分析"按钮查看结果</li>
+                            <li>您可以保存多只股票进行对比分析</li>
+                        </ol>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-medium text-slate-800 mb-2">计算公式</h3>
+                        <ul class="list-disc list-inside space-y-2 text-slate-600">
+                            <li><strong>当前股息率</strong> = 年分红金额 ÷ 当前股价 × 100%</li>
+                            <li><strong>目标股价</strong> = 年分红金额 ÷ 期望股息率</li>
+                            <li><strong>参考线</strong> = 十年国债利率 × 2.5</li>
+                        </ul>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-medium text-slate-800 mb-2">投资建议说明</h3>
+                        <p class="text-slate-600">本计算器根据当前股息率与期望股息率的对比，提供简单的投资建议，仅供参考，不构成投资决策依据。</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 添加股票模态框 -->
+    <div id="add-stock-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-none shadow-lg max-w-md w-full border-l-4 border-primary">
+            <div class="p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-bold text-slate-900 flex items-center">
+                        <svg class="w-5 h-5 mr-2 text-primary" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <polyline points="23,6 13.5,15.5 8.5,10.5 1,18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            <polyline points="17,6 23,6 23,12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                        添加股票
+                    </h2>
+                    <button id="close-add-stock-btn" class="text-slate-500 hover:text-slate-700">
+                        <i class="fa fa-times"></i>
+                    </button>
+                </div>
+                <form id="quick-add-form" class="space-y-4">
+                    <div>
+                        <label for="quick-stock-name" class="form-label">股票名称</label>
+                        <input type="text" id="quick-stock-name" class="form-input" placeholder="例如：贵州茅台" required>
+                    </div>
+                    <div>
+                        <label for="quick-stock-code" class="form-label">股票代码</label>
+                        <input type="text" id="quick-stock-code" class="form-input" placeholder="例如：600519">
+                    </div>
+                    <div>
+                        <label for="quick-dividend-amount" class="form-label">年分红金额 (元/股)</label>
+                        <input type="number" id="quick-dividend-amount" class="form-input" step="0.01" min="0" placeholder="例如：21.68" required>
+                    </div>
+                    <div class="pt-2">
+                        <button type="submit" class="btn-primary w-full flex items-center justify-center">
+                            <i class="fa fa-plus mr-2"></i> 添加
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</body>
+
+<script>
+    // 全局变量
+    let stocks = JSON.parse(localStorage.getItem('stocks')) || [];
+    let currentStock = null;
+    let dividendRateChart = null;
+    let comparisonChart = null;
+
+    // DOM 元素
+    const stockForm = document.getElementById('stock-form');
+    const stockList = document.getElementById('stock-list');
+    const emptyStockMessage = document.getElementById('empty-stock-message');
+    const currentDividendRateEl = document.getElementById('current-dividend-rate');
+    const targetPricesContainer = document.getElementById('target-prices-container');
+    const emptyTargetPricesMessage = document.getElementById('empty-target-prices-message');
+    const investmentAdviceEl = document.getElementById('investment-advice');
+    const helpModal = document.getElementById('help-modal');
+    const helpBtn = document.getElementById('help-btn');
+    const closeHelpBtn = document.getElementById('close-help-btn');
+    const addStockModal = document.getElementById('add-stock-modal');
+    const addStockBtn = document.getElementById('add-stock-btn');
+    const closeAddStockBtn = document.getElementById('close-add-stock-btn');
+    const quickAddForm = document.getElementById('quick-add-form');
+    const exportDataBtn = document.getElementById('export-data-btn');
+    const importDataBtn = document.getElementById('import-data-btn');
+    const fileInput = document.getElementById('file-input');
+    const themeToggle = document.getElementById('theme-toggle');
+    const addRateBtn = document.getElementById('add-rate-btn');
+    const dividendRatesContainer = document.getElementById('dividend-rates-container');
+    const treasuryRateInput = document.getElementById('treasury-rate');
+    const updateTimeEl = document.getElementById('update-time');
+
+    // 初始化
+    document.addEventListener('DOMContentLoaded', () => {
+        // 设置当前日期
+        const today = new Date();
+        updateTimeEl.textContent = today.toISOString().split('T')[0];
+        
+        // 初始化背景动效
+        initBackgroundAnimation();
+        
+        // 初始化其他功能
+        renderStockList();
+        initEventListeners();
+        initCharts();
+    });
+
+    // 初始化事件监听器
+    function initEventListeners() {
+        // 股票表单提交
+        stockForm.addEventListener('submit', handleStockFormSubmit);
+        
+        // 帮助模态框
+        helpBtn.addEventListener('click', () => helpModal.classList.remove('hidden'));
+        closeHelpBtn.addEventListener('click', () => helpModal.classList.add('hidden'));
+        
+        // 添加股票模态框
+        addStockBtn.addEventListener('click', () => addStockModal.classList.remove('hidden'));
+        closeAddStockBtn.addEventListener('click', () => addStockModal.classList.add('hidden'));
+        
+        // 快速添加股票表单
+        quickAddForm.addEventListener('submit', handleQuickAddFormSubmit);
+        
+        // 导出/导入数据
+        exportDataBtn.addEventListener('click', exportData);
+        importDataBtn.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', handleFileImport);
+        
+        // 主题切换
+        themeToggle.addEventListener('click', toggleTheme);
+        
+        // 添加股息率档位
+        addRateBtn.addEventListener('click', addDividendRateInput);
+        
+        // 点击模态框背景关闭
+        helpModal.addEventListener('click', (e) => {
+            if (e.target === helpModal) helpModal.classList.add('hidden');
+        });
+        addStockModal.addEventListener('click', (e) => {
+            if (e.target === addStockModal) addStockModal.classList.add('hidden');
+        });
+    }
+
+    // 处理股票表单提交
+    function handleStockFormSubmit(e) {
+        e.preventDefault();
+        
+        // 获取所有股息率档位
+        const dividendRateInputs = document.querySelectorAll('.dividend-rate');
+        const dividendRates = Array.from(dividendRateInputs).map(input => {
+            const rate = parseFloat(input.value);
+            return !isNaN(rate) ? parseFloat(rate.toFixed(2)) : null;
+        }).filter(rate => rate !== null);
+        
+        const treasuryRate = parseFloat(document.getElementById('treasury-rate').value);
+        
+        const stockData = {
+            name: document.getElementById('stock-name').value,
+            code: document.getElementById('stock-code').value,
+            currentPrice: parseFloat(document.getElementById('current-price').value),
+            dividendAmount: parseFloat(document.getElementById('dividend-amount').value),
+            dividendRates: dividendRates,
+            treasuryRate: treasuryRate,
+            id: currentStock ? currentStock.id : Date.now().toString()
+        };
+        
+        // 计算结果
+        const currentDividendRate = (stockData.dividendAmount / stockData.currentPrice * 100).toFixed(2);
+        
+        // 更新UI
+        currentDividendRateEl.textContent = currentDividendRate;
+        
+        // 计算并显示多个股息率对应的目标股价
+        renderTargetPrices(stockData);
+        
+        // 生成投资建议
+        generateInvestmentAdvice(stockData, currentDividendRate);
+        
+        // 更新图表
+        updateDividendRateChart(stockData);
+        
+        // 保存股票数据
+        if (currentStock) {
+            // 更新现有股票
+            const index = stocks.findIndex(s => s.id === currentStock.id);
+            if (index !== -1) {
+                stocks[index] = stockData;
+            }
+        } else {
+            // 添加新股票
+            stocks.push(stockData);
+        }
+        
+        // 保存到本地存储
+        localStorage.setItem('stocks', JSON.stringify(stocks));
+        
+        // 更新股票列表
+        renderStockList();
+        
+        // 更新对比图表
+        updateComparisonChart();
+        
+        // 重置表单
+        stockForm.reset();
+        currentStock = null;
+    }
+
+    // 处理快速添加股票表单提交
+    function handleQuickAddFormSubmit(e) {
+        e.preventDefault();
+        
+        const stockData = {
+            name: document.getElementById('quick-stock-name').value,
+            code: document.getElementById('quick-stock-code').value,
+            dividendAmount: parseFloat(document.getElementById('quick-dividend-amount').value),
+            dividendRates: [3.00, 4.00, 5.00, 6.00, 7.00],
+            treasuryRate: 2.50,
+            id: Date.now().toString()
+        };
+        
+        // 添加到股票列表
+        stocks.push(stockData);
+        
+        // 保存到本地存储
+        localStorage.setItem('stocks', JSON.stringify(stocks));
+        
+        // 更新股票列表
+        renderStockList();
+        
+        // 重置表单并关闭模态框
+        quickAddForm.reset();
+        addStockModal.classList.add('hidden');
+        
+        // 更新对比图表
+        updateComparisonChart();
+    }
+
+    // 渲染股票列表
+    function renderStockList() {
+        // 显示/隐藏空消息
+        if (stocks.length === 0) {
+            emptyStockMessage.classList.remove('hidden');
+            stockList.innerHTML = '';
+            stockList.appendChild(emptyStockMessage);
+            return;
+        }
+        
+        emptyStockMessage.classList.add('hidden');
+        stockList.innerHTML = '';
+        
+        stocks.forEach(stock => {
+            const stockItem = document.createElement('div');
+            stockItem.className = 'flex justify-between items-center p-2 hover:bg-slate-50 border-l-2 border-transparent hover:border-primary transition-all-300 cursor-pointer';
+            stockItem.dataset.id = stock.id;
+            
+            const stockInfo = document.createElement('div');
+            stockInfo.innerHTML = `
+                <div class="font-medium text-slate-800">${stock.name}</div>
+                <div class="text-xs text-slate-500">${stock.code || '无代码'}</div>
+            `;
+            
+            const stockActions = document.createElement('div');
+            stockActions.className = 'flex space-x-2';
+            
+            const selectBtn = document.createElement('button');
+            selectBtn.className = 'text-primary hover:text-primary/80';
+            selectBtn.innerHTML = '<i class="fa fa-check-circle"></i>';
+            selectBtn.title = '选择此股票';
+            selectBtn.addEventListener('click', () => selectStock(stock));
+            
+            const deleteBtn = document.createElement('button');
+            deleteBtn.className = 'text-danger hover:text-danger/80';
+            deleteBtn.innerHTML = '<i class="fa fa-trash"></i>';
+            deleteBtn.title = '删除此股票';
+            deleteBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                deleteStock(stock.id);
+            });
+            
+            stockActions.appendChild(selectBtn);
+            stockActions.appendChild(deleteBtn);
+            
+            stockItem.appendChild(stockInfo);
+            stockItem.appendChild(stockActions);
+            
+            stockList.appendChild(stockItem);
+        });
+    }
+
+    // 选择股票
+    function selectStock(stock) {
+        currentStock = stock;
+        
+        // 填充表单
+        document.getElementById('stock-name').value = stock.name;
+        document.getElementById('stock-code').value = stock.code || '';
+        document.getElementById('current-price').value = stock.currentPrice || '';
+        document.getElementById('dividend-amount').value = stock.dividendAmount;
+        document.getElementById('treasury-rate').value = stock.treasuryRate || 2.50;
+        
+        // 填充股息率档位
+        const dividendRateInputs = document.querySelectorAll('.dividend-rate');
+        
+        // 清空现有输入框
+        dividendRateInputs.forEach((input, index) => {
+            if (index < stock.dividendRates.length) {
+                input.value = stock.dividendRates[index];
+            } else {
+                input.value = '';
+            }
+        });
+        
+        // 如果股息率档位不够，添加更多
+        if (stock.dividendRates.length > dividendRateInputs.length) {
+            const additionalRates = stock.dividendRates.slice(dividendRateInputs.length);
+            additionalRates.forEach(rate => {
+                addDividendRateInput(rate);
+            });
+        }
+        
+        // 如果有完整数据，计算结果
+        if (stock.currentPrice && stock.dividendRates && stock.dividendRates.length > 0) {
+            const currentDividendRate = (stock.dividendAmount / stock.currentPrice * 100).toFixed(2);
+            
+            currentDividendRateEl.textContent = currentDividendRate;
+            
+            // 计算并显示多个股息率对应的目标股价
+            renderTargetPrices(stock);
+            
+            generateInvestmentAdvice(stock, currentDividendRate);
+            updateDividendRateChart(stock);
+        }
+    }
+
+    // 删除股票
+    function deleteStock(id) {
+        stocks = stocks.filter(stock => stock.id !== id);
+        localStorage.setItem('stocks', JSON.stringify(stocks));
+        renderStockList();
+        updateComparisonChart();
+        
+        // 如果删除的是当前选中的股票，重置表单
+        if (currentStock && currentStock.id === id) {
+            stockForm.reset();
+            currentStock = null;
+        }
+    }
+
+    // 生成投资建议
+    function generateInvestmentAdvice(stock, currentDividendRate) {
+        let advice = '';
+        let adviceClass = '';
+        
+        const currentRate = parseFloat(currentDividendRate);
+        
+        // 使用最低的股息率档位作为参考
+        const minExpectedRate = Math.min(...stock.dividendRates);
+        
+        if (currentRate >= minExpectedRate * 1.2) {
+            advice = `当前股息率 ${currentRate.toFixed(2)}% 显著高于最低期望股息率 ${minExpectedRate.toFixed(2)}%，该股票可能被低估，具有较高的投资价值。`;
+            adviceClass = 'text-success';
+        } else if (currentRate >= minExpectedRate) {
+            advice = `当前股息率 ${currentRate.toFixed(2)}% 高于最低期望股息率 ${minExpectedRate.toFixed(2)}%，该股票估值合理，可考虑投资。`;
+            adviceClass = 'text-primary';
+        } else if (currentRate >= minExpectedRate * 0.8) {
+            advice = `当前股息率 ${currentRate.toFixed(2)}% 略低于最低期望股息率 ${minExpectedRate.toFixed(2)}%，可关注股价变动，在合适时机买入。`;
+            adviceClass = 'text-warning';
+        } else {
+            advice = `当前股息率 ${currentRate.toFixed(2)}% 显著低于最低期望股息率 ${minExpectedRate.toFixed(2)}%，建议等待股价下跌或寻找其他高股息率股票。`;
+            adviceClass = 'text-danger';
+        }
+        
+        investmentAdviceEl.textContent = advice;
+        investmentAdviceEl.className = `text-slate-700 ${adviceClass}`;
+    }
+
+    // 初始化图表
+    function initCharts() {
+        // 股息率趋势图
+        const dividendRateCtx = document.getElementById('dividend-rate-chart').getContext('2d');
+        dividendRateChart = new Chart(dividendRateCtx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: '股息率 (%)',
+                    data: [],
+                    borderColor: '#3b82f6',
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0, // 使用折线而非曲线
+                    pointBackgroundColor: '#fff',
+                    pointBorderColor: '#3b82f6',
+                    pointRadius: 4,
+                    pointHoverRadius: 6
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: '股息率 (%)',
+                            color: '#64748b',
+                            font: {
+                                size: 12,
+                                weight: 'normal'
+                            }
+                        },
+                        grid: {
+                            borderDash: [2, 4],
+                            color: 'rgba(100, 116, 139, 0.1)'
+                        }
+                    },
+                    x: {
+                        title: {
+                            display: true,
+                            text: '股价 (元)',
+                            color: '#64748b',
+                            font: {
+                                size: 12,
+                                weight: 'normal'
+                            }
+                        },
+                        grid: {
+                            display: false
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top',
+                        labels: {
+                            usePointStyle: true,
+                            boxWidth: 6,
+                            color: '#64748b'
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return `股息率: ${context.parsed.y.toFixed(2)}%`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+        
+        // 多股票对比图
+        const comparisonCtx = document.getElementById('comparison-chart').getContext('2d');
+        comparisonChart = new Chart(comparisonCtx, {
+            type: 'bar',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: '股息率 (%)',
+                    data: [],
+                    backgroundColor: [],
+                    borderColor: [],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: '股息率 (%)',
+                            color: '#64748b',
+                            font: {
+                                size: 12,
+                                weight: 'normal'
+                            }
+                        },
+                        grid: {
+                            borderDash: [2, 4],
+                            color: 'rgba(100, 116, 139, 0.1)'
+                        }
+                    },
+                    x: {
+                        grid: {
+                            display: false
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return `股息率: ${context.parsed.y.toFixed(2)}%`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+        
+        // 初始更新对比图表
+        updateComparisonChart();
+    }
+
+    // 更新股息率趋势图
+    function updateDividendRateChart(stock) {
+        if (!stock || !stock.currentPrice || !stock.dividendAmount) return;
+        
+        const currentPrice = stock.currentPrice;
+        const dividendAmount = stock.dividendAmount;
+        const treasuryRate = stock.treasuryRate || 2.50;
+        const benchmarkRate = treasuryRate * 2.5; // 十年国债利率的2.5倍
+        
+        // 生成股价范围（当前股价的50%到150%）
+        const minPrice = Math.max(0, currentPrice * 0.5);
+        const maxPrice = currentPrice * 1.5;
+        const priceStep = (maxPrice - minPrice) / 10;
+        
+        const prices = [];
+        const dividendRates = [];
+        
+        for (let price = minPrice; price <= maxPrice; price += priceStep) {
+            prices.push(price.toFixed(2));
+            dividendRates.push((dividendAmount / price * 100).toFixed(2));
+        }
+        
+        // 更新图表数据
+        dividendRateChart.data.labels = prices;
+        dividendRateChart.data.datasets[0].data = dividendRates;
+        
+        // 添加当前股价标记
+        const currentIndex = prices.findIndex(p => Math.abs(parseFloat(p) - currentPrice) < 0.01);
+        if (currentIndex !== -1) {
+            dividendRateChart.data.datasets[0].pointBackgroundColor = Array(prices.length).fill('#fff');
+            dividendRateChart.data.datasets[0].pointBorderColor = Array(prices.length).fill('#3b82f6');
+            dividendRateChart.data.datasets[0].pointRadius = Array(prices.length).fill(4);
+            
+            // 突出显示当前股价点
+            dividendRateChart.data.datasets[0].pointBackgroundColor[currentIndex] = '#ef4444';
+            dividendRateChart.data.datasets[0].pointBorderColor[currentIndex] = '#ef4444';
+            dividendRateChart.data.datasets[0].pointRadius[currentIndex] = 6;
+        }
+        
+        // 添加国债利率2.5倍的参考线
+        // 首先移除可能存在的参考线数据集
+        if (dividendRateChart.data.datasets.length > 1) {
+            dividendRateChart.data.datasets.splice(1);
+        }
+        
+        // 添加新的参考线数据集
+        dividendRateChart.data.datasets.push({
+            label: `国债利率2.5倍 (${benchmarkRate.toFixed(2)}%)`,
+            data: Array(prices.length).fill(benchmarkRate.toFixed(2)),
+            borderColor: '#f59e0b',
+            backgroundColor: 'rgba(245, 158, 11, 0.1)',
+            borderWidth: 2,
+            borderDash: [5, 5],
+            fill: false,
+            pointRadius: 0,
+            pointHoverRadius: 0
+        });
+        
+        dividendRateChart.update();
+    }
+
+    // 更新多股票对比图
+    function updateComparisonChart() {
+        // 过滤出有完整数据的股票
+        const validStocks = stocks.filter(stock => stock.currentPrice && stock.dividendAmount);
+        
+        if (validStocks.length === 0) {
+            comparisonChart.data.labels = [];
+            comparisonChart.data.datasets[0].data = [];
+            comparisonChart.update();
+            return;
+        }
+        
+        const labels = validStocks.map(stock => stock.name);
+        const dividendRates = validStocks.map(stock => (stock.dividendAmount / stock.currentPrice * 100).toFixed(2));
+        
+        // 生成颜色
+        const backgroundColors = validStocks.map(stock => {
+            const rate = parseFloat(dividendRates[validStocks.indexOf(stock)]);
+            if (rate >= 5) return 'rgba(16, 185, 129, 0.7)'; // 高股息率 - 绿色
+            if (rate >= 3) return 'rgba(59, 130, 246, 0.7)';  // 中等股息率 - 蓝色
+            return 'rgba(239, 68, 68, 0.7)';               // 低股息率 - 红色
+        });
+        
+        const borderColors = backgroundColors.map(color => color.replace('0.7', '1'));
+        
+        comparisonChart.data.labels = labels;
+        comparisonChart.data.datasets[0].data = dividendRates;
+        comparisonChart.data.datasets[0].backgroundColor = backgroundColors;
+        comparisonChart.data.datasets[0].borderColor = borderColors;
+        
+        comparisonChart.update();
+    }
+
+    // 导出数据
+    function exportData() {
+        if (stocks.length === 0) {
+            alert('没有可导出的数据');
+            return;
+        }
+        
+        // 创建CSV内容，使用UTF-8 BOM解决Excel乱码
+        let csvContent = "\uFEFF";
+        csvContent += "股票名称,股票代码,当前股价,年分红金额,股息率档位,十年国债利率\n";
+        
+        stocks.forEach(stock => {
+            // 使用第一个股息率档位作为代表，多个档位用分号分隔
+            const dividendRatesStr = stock.dividendRates ? stock.dividendRates.join(';') : '';
+            csvContent += `${stock.name},${stock.code || ''},${stock.currentPrice || ''},${stock.dividendAmount},${dividendRatesStr},${stock.treasuryRate || 2.50}\n`;
+        });
+        
+        // 创建下载链接
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.setAttribute('href', url);
+        link.setAttribute('download', `股票股息率数据_${new Date().toISOString().split('T')[0]}.csv`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+
+    // 处理文件导入（修复中文乱码问题）
+    function handleFileImport(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        const reader = new FileReader();
+        reader.onload = function(event) {
+            try {
+                let csvContent = event.target.result;
+                
+                // 检测并处理中文乱码
+                try {
+                    // 尝试用UTF-8解码，如果失败则用GBK
+                    if (!/^[\x00-\x7F]*$/.test(csvContent) && /[\uFFFD]/.test(csvContent)) {
+                        // 重新用GBK读取
+                        reader.readAsText(file, 'GBK');
+                        return;
+                    }
+                } catch (e) {}
+                
+                // 正常解析
+                const lines = csvContent.split('\n');
+                if (lines.length < 2) {
+                    alert('CSV文件格式不正确');
+                    return;
+                }
+                
+                const newStocks = [];
+                for (let i = 1; i < lines.length; i++) {
+                    const line = lines[i].trim();
+                    if (!line) continue;
+                    
+                    const columns = line.split(',');
+                    if (columns.length < 4) continue;
+                    
+                    const stock = {
+                        name: columns[0] || '',
+                        code: columns[1] || '',
+                        currentPrice: parseFloat(columns[2]) || null,
+                        dividendAmount: parseFloat(columns[3]) || 0,
+                        treasuryRate: parseFloat(columns[5]) || 2.50,
+                        id: Date.now().toString() + i
+                    };
+                    
+                    // 解析股息率数据
+                    if (columns[4]) {
+                        stock.dividendRates = columns[4].includes(';') 
+                            ? columns[4].split(';').map(rate => parseFloat(rate)).filter(rate => !isNaN(rate))
+                            : [parseFloat(columns[4]) || 5.00];
+                    } else {
+                        stock.dividendRates = [3.00, 4.00, 5.00, 6.00, 7.00];
+                    }
+                    
+                    if (stock.name && stock.dividendAmount) {
+                        newStocks.push(stock);
+                    }
+                }
+                
+                if (newStocks.length === 0) {
+                    alert('未找到有效的股票数据');
+                    return;
+                }
+                
+                // 合并或替换现有数据
+                const confirmReplace = confirm(`找到 ${newStocks.length} 条股票数据，是否替换现有数据？\n取消将合并数据。`);
+                
+                if (confirmReplace) {
+                    stocks = newStocks;
+                } else {
+                    stocks = [...stocks, ...newStocks];
+                }
+                
+                // 保存并更新UI
+                localStorage.setItem('stocks', JSON.stringify(stocks));
+                renderStockList();
+                updateComparisonChart();
+                
+                alert(`成功导入 ${newStocks.length} 条股票数据`);
+            } catch (e) {
+                alert('导入失败：' + e.message);
+            }
+        };
+        
+        // 先尝试UTF-8读取
+        reader.readAsText(file, 'UTF-8');
+        fileInput.value = ''; // 重置文件输入
+    }
+
+    // 切换主题
+    function toggleTheme() {
+        const body = document.body;
+        const icon = themeToggle.querySelector('i');
+        
+        if (body.classList.contains('dark')) {
+            // 切换到亮色主题
+            body.classList.remove('dark');
+            body.classList.remove('bg-slate-900');
+            body.classList.add('bg-slate-50');
+            icon.classList.remove('fa-sun-o');
+            icon.classList.add('fa-moon-o');
+        } else {
+            // 切换到暗色主题
+            body.classList.add('dark');
+            body.classList.remove('bg-slate-50');
+            body.classList.add('bg-slate-900');
+            icon.classList.remove('fa-moon-o');
+            icon.classList.add('fa-sun-o');
+        }
+    }
+    
+    // 添加股息率输入框
+    function addDividendRateInput(rateValue = '') {
+        // 创建新的输入框容器
+        const newInputContainer = document.createElement('div');
+        newInputContainer.className = 'flex items-center space-x-2';
+        
+        // 创建输入框
+        const newInput = document.createElement('input');
+        newInput.type = 'number';
+        newInput.className = 'dividend-rate form-input flex-grow';
+        newInput.step = '0.01';
+        newInput.min = '0';
+        newInput.max = '100';
+        newInput.placeholder = '输入股息率';
+        newInput.value = typeof rateValue === 'number' ? rateValue.toFixed(2) : '';
+        
+        // 创建删除按钮
+        const deleteBtn = document.createElement('button');
+        deleteBtn.type = 'button';
+        deleteBtn.className = 'text-danger hover:text-danger/80 p-1';
+        deleteBtn.innerHTML = '<i class="fa fa-times"></i>';
+        deleteBtn.title = '删除此档位';
+        deleteBtn.addEventListener('click', () => {
+            // 确保至少保留一个输入框
+            const totalInputs = document.querySelectorAll('.dividend-rate').length;
+            if (totalInputs > 1) {
+                newInputContainer.remove();
+            } else {
+                alert('至少需要保留一个股息率档位');
+            }
+        });
+        
+        // 组装并添加到容器
+        newInputContainer.appendChild(newInput);
+        newInputContainer.appendChild(deleteBtn);
+        
+        // 找到"添加档位"按钮的前一个元素，在其后面插入新输入框
+        const addBtnContainer = document.querySelector('#dividend-rates-container > div:last-child');
+        dividendRatesContainer.insertBefore(newInputContainer, addBtnContainer);
+    }
+    
+    // 渲染目标股价
+    function renderTargetPrices(stock) {
+        if (!stock || !stock.dividendRates || stock.dividendRates.length === 0) {
+            emptyTargetPricesMessage.classList.remove('hidden');
+            return;
+        }
+        
+        // 隐藏空消息
+        emptyTargetPricesMessage.classList.add('hidden');
+        
+        // 清空容器
+        targetPricesContainer.innerHTML = '';
+        
+        // 为每个股息率生成目标股价卡片
+        stock.dividendRates.forEach(rate => {
+            if (!rate || isNaN(rate)) return;
+            
+            // 计算目标股价
+            const targetPrice = (stock.dividendAmount / (rate / 100)).toFixed(2);
+            
+            // 确定卡片颜色
+            let cardColorClass = '';
+            let borderColorClass = '';
+            
+            if (rate >= 6) {
+                cardColorClass = 'bg-green-50';
+                borderColorClass = 'border-green-500';
+            } else if (rate >= 4) {
+                cardColorClass = 'bg-blue-50';
+                borderColorClass = 'border-blue-500';
+            } else {
+                cardColorClass = 'bg-purple-50';
+                borderColorClass = 'border-purple-500';
+            }
+            
+            // 创建卡片
+            const priceCard = document.createElement('div');
+            priceCard.className = `${cardColorClass} p-3 border-l-2 ${borderColorClass} transition-all-300 hover:shadow-md`;
+            priceCard.innerHTML = `
+                <h4 class="text-xs font-medium text-slate-700 mb-1">股息率 ${rate.toFixed(2)}%</h4>
+                <div class="flex items-center justify-center">
+                    <span class="text-sm font-medium text-slate-700">¥</span>
+                    <span class="text-xl font-bold text-slate-900">${targetPrice}</span>
+                </div>
+            `;
+            
+            // 添加到容器
+            targetPricesContainer.appendChild(priceCard);
+        });
+    }
+    
+    // 初始化背景动效
+    function initBackgroundAnimation() {
+        const canvas = document.createElement('canvas');
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        document.getElementById('animationBackground').appendChild(canvas);
+
+        const ctx = canvas.getContext('2d');
+        let points = [];
+        let mouseX = 0;
+        let mouseY = 0;
+
+        // 创建初始点阵
+        for (let i = 0; i < 50; i++) {
+            points.push({
+                x: Math.random() * canvas.width,
+                y: Math.random() * canvas.height,
+                size: Math.random() * 1.5 + 0.5,
+                speedX: (Math.random() - 0.5) * 0.3,
+                speedY: (Math.random() - 0.5) * 0.3
+            });
+        }
+
+        // 鼠标移动监听
+        document.addEventListener('mousemove', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            mouseX = e.clientX - rect.left;
+            mouseY = e.clientY - rect.top;
+        });
+
+        // 动画循环
+        function animate() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.strokeStyle = '#3b82f6';
+            ctx.lineWidth = 0.3;
+        
+            for (let i = 0; i < points.length; i++) {
+                const point = points[i];
+            
+                // 更新点的位置
+                point.x += point.speedX;
+                point.y += point.speedY;
+            
+                // 边界检查
+                if (point.x < 0 || point.x > canvas.width) point.speedX *= -1;
+                if (point.y < 0 || point.y > canvas.height) point.speedY *= -1;
+            
+                // 绘制点
+                ctx.beginPath();
+                ctx.arc(point.x, point.y, point.size, 0, Math.PI * 2);
+                ctx.fillStyle = '#3b82f6';
+                ctx.fill();
+            
+                // 绘制连接线
+                for (let j = i + 1; j < points.length; j++) {
+                    const otherPoint = points[j];
+                    const distance = Math.sqrt(
+                        Math.pow(point.x - otherPoint.x, 2) + 
+                        Math.pow(point.y - otherPoint.y, 2)
+                    );
+                
+                    if (distance < 100) {
+                        ctx.beginPath();
+                        ctx.moveTo(point.x, point.y);
+                        ctx.lineTo(otherPoint.x, otherPoint.y);
+                        ctx.stroke();
+                    }
+                }
+            
+                // 鼠标交互 - 让点轻微向鼠标位置偏移
+                const mouseDistance = Math.sqrt(
+                    Math.pow(point.x - mouseX, 2) + 
+                    Math.pow(point.y - mouseY, 2)
+                );
+            
+                if (mouseDistance < 150) {
+                    const angle = Math.atan2(mouseY - point.y, mouseX - point.x);
+                    point.x += Math.cos(angle) * 0.2;
+                    point.y += Math.sin(angle) * 0.2;
+                }
+            }
+        
+            requestAnimationFrame(animate);
+        }
+
+        animate();
+
+        // 窗口大小调整
+        window.addEventListener('resize', () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        });
+    }
+</script>
+</html>
